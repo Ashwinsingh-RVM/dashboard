@@ -7,9 +7,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
+        integrity="sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g"
+        crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
+        integrity="sha384-NElt3Op+9NBMCYaef5HxeJmU4Xeard/Lku8ek6hoPTvYkQPh3zLIrJP7KiRocsxO"
+        crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+      integrity="sha384-c6Rcwz4e4CITMbu/NBmnNS8yN2sC3cUElMEMfP3vqqKFp7GOYaaBBCqmaWBjmkjb"
+      crossorigin="anonymous"/>
 <style>
   /* ============================================================
      DESIGN SYSTEM — Operational Command Center
@@ -66,6 +72,20 @@
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* Keyboard focus ring — make it possible to navigate without a mouse.
+     Uses :focus-visible so mouse clicks don't show the ring. */
+  :focus { outline: none; }
+  :focus-visible {
+    outline: 2px solid var(--accent, #2c4cdc);
+    outline-offset: 2px;
+    border-radius: 4px;
+    box-shadow: 0 0 0 3px rgba(44, 76, 220, 0.18);
+    transition: outline-offset 0.05s ease;
+  }
+  /* Make div-based interactive surfaces focusable by adding tabindex="0" in HTML.
+     Until then, native <a>, <button>, <input>, <select>, <textarea> get the ring. */
+
   html, body { height: 100%; }
   body {
     font-family: var(--font-sans);
@@ -4387,6 +4407,24 @@
 </aside>
 
 <script>
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+// Escape data strings before interpolating into innerHTML templates.
+// Today the data layer is synthetic, but any field that will later be
+// sourced from a real API (handler names, CP locations, ticket text,
+// agent verdicts) must be routed through escapeHtml to close the XSS
+// surface. See dashboard-audit findings, Phase 2 item: full sweep.
+function escapeHtml(v) {
+  if (v === null || v === undefined) return '';
+  return String(v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /* ============================================================
    NAVIGATION
    ============================================================ */
@@ -9663,7 +9701,7 @@ function wireExecCards() {
   // Donut chart
   const el = document.getElementById('exec-deposit-donut');
   if (el && window.Chart) {
-    new Chart(el, {
+    const _execDonut = new Chart(el, {
       type: 'doughnut',
       data: {
         labels: ['₹2', '₹5', '₹10'],
@@ -9674,6 +9712,7 @@ function wireExecCards() {
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.parsed}%` } } }
       }
     });
+    _allCharts.push(_execDonut);
   }
 
   // 30-day trend chart
@@ -9691,7 +9730,7 @@ function wireExecCards() {
       const noise = 0.95 + Math.random() * 0.1;
       days.push(Math.round(base * weekend * trend * noise));
     }
-    new Chart(tEl, {
+    const _execTrend = new Chart(tEl, {
       type: 'line',
       data: {
         labels: labels,
@@ -9719,6 +9758,7 @@ function wireExecCards() {
         }
       }
     });
+    _allCharts.push(_execTrend);
   }
 
   // Note: Insights Agent panel is now rendered globally by renderPage()
@@ -12082,21 +12122,21 @@ function _execShowAssetDrill(type, payload) {
       Tetra: Math.round(todayUnits * 0.03),
     };
 
-    title.innerHTML = `<span style="display:inline-flex;align-items:center;gap:8px;">📍 ${rvmId} <button id="v44-drill-close" style="font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;color:#6b7280;">✕ Back</button></span>`;
-    sub.innerHTML = `<span style="color:${cpc?.color};font-weight:600;">${cpc?.short || p.cpc}</span> · ${p.taluka} · ${p.zone === 'north' ? 'North' : 'South'} Goa`;
+    title.innerHTML = `<span style="display:inline-flex;align-items:center;gap:8px;">📍 ${escapeHtml(rvmId)} <button id="v44-drill-close" style="font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid #e5e7eb;background:#fff;cursor:pointer;color:#6b7280;">✕ Back</button></span>`;
+    sub.innerHTML = `<span style="color:${cpc?.color};font-weight:600;">${escapeHtml(cpc?.short || p.cpc)}</span> · ${escapeHtml(p.taluka)} · ${p.zone === 'north' ? 'North' : 'South'} Goa`;
 
     body.innerHTML = `
       <!-- Hierarchy breadcrumb -->
       <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#6b7280;padding:8px 10px;background:#f8fafc;border-radius:6px;margin-bottom:10px;flex-wrap:wrap;">
         <span>${p.zone === 'north' ? '🧭 North' : '🧭 South'} Goa</span>
         <span style="color:#cbd5e1;">›</span>
-        <span>📍 ${p.taluka}</span>
+        <span>📍 ${escapeHtml(p.taluka)}</span>
         <span style="color:#cbd5e1;">›</span>
-        <span>🏛️ ${p.name}</span>
+        <span>🏛️ ${escapeHtml(p.name)}</span>
         <span style="color:#cbd5e1;">›</span>
-        <span style="color:${cpc?.color};font-weight:700;">⭐ ${cpc?.short || p.cpc}</span>
+        <span style="color:${cpc?.color};font-weight:700;">⭐ ${escapeHtml(cpc?.short || p.cpc)}</span>
         <span style="color:#cbd5e1;">›</span>
-        <span style="color:#2c4cdc;font-weight:700;">📍 ${rvmId}</span>
+        <span style="color:#2c4cdc;font-weight:700;">📍 ${escapeHtml(rvmId)}</span>
       </div>
 
       <!-- Status pills -->
@@ -12489,11 +12529,11 @@ function wireExecHomeWithMapToggle() {
 //                    Collection-Infra Utilisation by Channel)
 // Click any slice -> data-point popup modal.
 // ============================================================
-let _v36Charts = [];
+let _allCharts = [];
 function v36RenderPieCharts() {
   // Destroy any prior chart instances (re-render safe)
-  _v36Charts.forEach(c => { try { c.destroy(); } catch(_) {} });
-  _v36Charts = [];
+  _allCharts.forEach(c => { try { c.destroy(); } catch(_) {} });
+  _allCharts = [];
   if (typeof Chart === 'undefined') return;
   const data = window.__V25;
   if (!data) return;
@@ -12542,7 +12582,7 @@ function v36RenderPieCharts() {
         },
       },
     });
-    _v36Charts.push(chart);
+    _allCharts.push(chart);
   }
 
   // 1 — QR Redemption by Material
@@ -14712,6 +14752,11 @@ function wireCpMachines() {
 }
 
 function renderPage(pageId) {
+  // Destroy Chart.js instances from the previous page to release Canvas/WebGL contexts.
+  if (Array.isArray(_allCharts) && _allCharts.length) {
+    _allCharts.forEach(c => { try { c.destroy(); } catch(_) {} });
+    _allCharts = [];
+  }
   currentPageId = pageId;
   const main = document.getElementById('main-content');
   const p = PAGES[pageId];
